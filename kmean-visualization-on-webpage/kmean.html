@@ -1,0 +1,147 @@
+<html>
+  <head>
+    <title>Kmean</title>
+  </head>
+  <body>
+    <canvas id="kmean" width="640" height="480"></canvas>
+    <script type="application/javascript">
+      const canvas = document.getElementById("kmean");
+      const ctx = canvas.getContext("2d");
+
+      const N_CLUSTER = 3;
+      const N_POINTS = 100;
+      const SCREEN_WIDTH = 640;
+      const SCREEN_HEIGHT = 480;
+
+      const COLORS = ["orange", "green", "blue", "red", "black", "cyan", "yellow"];
+
+      function drawPoint(x, y, color = "orange", r = 2) {
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, 2 * Math.PI);
+        ctx.fillStyle = color;
+        ctx.fill();
+      }
+
+      function random(a, b) {
+        const d = b - a;
+        return a + Math.round(Math.random() * d);
+      }
+
+      function generateCluster(centroid, n_points, noise = 100) {
+        const points = [];
+
+        for (let i = 0; i < n_points; ++i) {
+          const p = {
+            label: 0,
+            x: (centroid.x + random(-noise, noise)) % SCREEN_WIDTH,
+            y: (centroid.y + random(-noise, noise)) % SCREEN_HEIGHT,
+          };
+          points.push(p);
+        }
+
+        return points;
+      }
+
+      function generateSample(n_cluster, n_points, noise) {
+        let points = [];
+        const centroids = [];
+
+        for (let i = 0; i < n_cluster; ++i) {
+          const c = {
+            x: random(0, SCREEN_WIDTH),
+            y: random(0, SCREEN_HEIGHT),
+          };
+          centroids.push(c);
+
+          points = points.concat(
+            generateCluster(c, n_points / n_cluster, noise).map((p) => ({
+              ...p,
+              label: random(0, n_cluster),
+            }))
+          );
+        }
+
+        return points;
+      }
+
+      function updateCentroid(n_cluster, points) {
+        const newCentroids = [];
+        for (let i = 0; i < n_cluster; ++i) {
+          const cluster_points = points.filter((item) => item.label === i);
+          const x =
+            cluster_points.reduce((prev, curr) => prev + curr.x, 0) /
+            cluster_points.length;
+          const y =
+            cluster_points.reduce((prev, curr) => prev + curr.y, 0) /
+            cluster_points.length;
+
+          newCentroids.push({ x, y });
+        }
+
+        return newCentroids;
+      }
+
+      function distance(u, v) {
+        const d = Math.round(
+          Math.sqrt(Math.pow(u.x - v.x, 2) + Math.pow(u.y - v.y, 2))
+        );
+
+        return d;
+      }
+
+      function findNearestCentroid(centroids, point) {
+        const ds = centroids.map((c) => distance(c, point));
+        const minimumDistance = Math.min(...ds);
+        return ds.indexOf(minimumDistance) || 0;
+      }
+
+      function updatePoints(centroids, points) {
+        const newPoints = [];
+        for (const p of points) {
+          const newLabel = findNearestCentroid(centroids, p);
+          newPoints.push({ ...p, label: newLabel });
+        }
+        return newPoints;
+      }
+
+      const MAX_ITER = 100;
+      let iter = 0;
+      let lock = true;
+      setTimeout(() => (lock = false), 3000);
+
+      (function() {
+        let sample = generateSample(3, 600, 200);
+        let centroids = [];
+        for (let i = 0; i < 3; ++i) {
+          centroids.push({
+            x: random(0, SCREEN_WIDTH),
+            y: random(0, SCREEN_HEIGHT),
+          });
+        }
+
+        function run() {
+          if (iter < MAX_ITER && !lock) {
+            sample = updatePoints(centroids, sample);
+            centroids = updateCentroid(3, sample);
+            ++iter;
+
+            lock = true;
+            setTimeout(() => (lock = false), 3000);
+          }
+
+          ctx.clearRect(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
+          for (const s of sample) {
+            drawPoint(s.x, s.y, COLORS[s.label]);
+          }
+
+          centroids.forEach((c, i) => {
+            drawPoint(c.x, c.y, COLORS[i], 8);
+          });
+          requestAnimationFrame(run);
+        }
+
+        run();
+      })();
+    </script>
+  </body>
+</html>
